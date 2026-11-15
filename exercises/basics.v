@@ -294,7 +294,7 @@ Qed.
 Lemma wand_adj (P Q R : iProp Σ) : (P -∗ Q -∗ R) ⊣⊢ (P ∗ Q -∗ R).
 Proof.
   iSplit.
-  - iIntros "HPQR [HP HQ]". iApply ("HPQR" with "[HP] [HQ]"); iFrame.
+  - iIntros "HPQR [HP HQ]". iApply ("HPQR" with "HP HQ").
   - iIntros "HPQR HP HQ". iApply "HPQR". iFrame.
 Qed.
 
@@ -332,7 +332,7 @@ Lemma sep_or_distr (P Q R : iProp Σ) : P ∗ (Q ∨ R) ⊣⊢ P ∗ Q ∨ P ∗
 Proof.
   iSplit.
   - iIntros "[HP [HQ | HR]]".
-    + iLeft. iSplitL "HP". iApply "HP". iApply "HQ".
+    + iLeft. iSplitL "HP". iApply "HP". iApply "HQ". (* [iFrame] *)
     + iRight. iSplitL "HP". iApply "HP". iApply "HR".
   - iIntros "[[HP HQ] | [HP HR]]".
     + iSplitL "HP". iApply "HP". iLeft. iApply "HQ".
@@ -353,8 +353,9 @@ Proof.
   - iIntros "(HP & %x & HΦ)".
     iExists x.
     iFrame.
-  - (* exercise *)
-Admitted.
+  - iIntros "(%x & HP & HΦ)".
+    iSplitR "HΦ"; iFrame.
+Qed.
 
 (**
   Likewise, forall quantification works almost as in Rocq. To introduce
@@ -366,7 +367,11 @@ Admitted.
 Lemma sep_all_distr {A} (P Q : A → iProp Σ) :
   (∀ x, P x) ∗ (∀ x, Q x) -∗ (∀ x, P x ∗ Q x).
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[HP HQ]".
+  iIntros "%x".
+  iSplitL "HP".
+  - iApply "HP".
+  - iApply "HQ".
+Qed.
 
 End proofs.
