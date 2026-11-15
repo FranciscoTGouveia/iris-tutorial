@@ -222,9 +222,9 @@ Qed.
 *)
 Lemma modus_ponens (P Q : iProp Σ) : P -∗ (P -∗ Q) -∗ Q.
 Proof.
-  (* exercise *)
-Admitted.
-
+  iIntros "HP HPQ".
+  iApply ("HPQ" with "HP").
+Qed.
 (**
   Just as with Rocq tactics, Iris allows nesting of introduction
   patterns. In fact, like Rocq, Iris supports patterns of the form
@@ -236,8 +236,13 @@ Admitted.
 *)
 Lemma sep_assoc_1 (P Q R : iProp Σ) : P ∗ Q ∗ R ⊢ (P ∗ Q) ∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[HP [HQ HR]]".
+  iSplitL "HP HQ".
+  - iSplitL "HP".
+    + iApply "HP".
+    + iApply "HQ".
+  - iApply "HR".
+Qed.
 
 (**
   Manually splitting a separation can become tedious. To alleviate this,
@@ -289,8 +294,9 @@ Qed.
 Lemma wand_adj (P Q R : iProp Σ) : (P -∗ Q -∗ R) ⊣⊢ (P ∗ Q -∗ R).
 Proof.
   iSplit.
-  (* exercise *)
-Admitted.
+  - iIntros "HPQR [HP HQ]". iApply ("HPQR" with "[HP] [HQ]"); iFrame.
+  - iIntros "HPQR HP HQ". iApply "HPQR". iFrame.
+Qed.
 
 (**
   Disjunctions [∨] are treated just like disjunctions in Rocq. The
@@ -301,8 +307,10 @@ Admitted.
 *)
 Lemma or_comm (P Q : iProp Σ) : Q ∨ P ⊢ P ∨ Q.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[Q | P]".
+  - iRight. iApply "Q".
+  - iLeft. iApply "P".
+Qed.
 
 (**
   We can even prove the usual elimination rule for or-elimination
@@ -311,8 +319,10 @@ Admitted.
 *)
 Lemma or_elim (P Q R : iProp Σ) : (P -∗ R) -∗ (Q -∗ R) -∗ P ∨ Q -∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "HPR HQR [P | Q]".
+  - iApply ("HPR" with "P").
+  - iApply ("HQR" with "Q").
+Qed.
 
 (**
   Separating conjunction distributes over disjunction (for the same
@@ -320,8 +330,14 @@ Admitted.
 *)
 Lemma sep_or_distr (P Q R : iProp Σ) : P ∗ (Q ∨ R) ⊣⊢ P ∗ Q ∨ P ∗ R.
 Proof.
-  (* exercise *)
-Admitted.
+  iSplit.
+  - iIntros "[HP [HQ | HR]]".
+    + iLeft. iSplitL "HP". iApply "HP". iApply "HQ".
+    + iRight. iSplitL "HP". iApply "HP". iApply "HR".
+  - iIntros "[[HP HQ] | [HP HR]]".
+    + iSplitL "HP". iApply "HP". iLeft. iApply "HQ".
+    + iSplitL "HP". iApply "HP". iRight. iApply "HR".
+Qed.
 
 (**
   Iris has existential and universal quantifiers over any Rocq type.
