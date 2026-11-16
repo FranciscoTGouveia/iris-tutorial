@@ -53,7 +53,7 @@ Example arith : expr :=
 
 Lemma arith_spec : ⊢ WP arith {{ v, ⌜v = #16⌝ }}.
 Proof.
-  rewrite /arith.
+  rewrite /arith. (* Doing [/arith] unfolds the definition of [arith]. *)
   (**
     To prove this weakest precondition, we can use the tactics provided
     by [proofmode]. The initial step of the program is to multiply [#2]
@@ -158,8 +158,11 @@ Example lambda : expr :=
 Lemma lambda_spec : ⊢ WP lambda {{ v, ⌜v = #20⌝ }}.
 Proof.
   rewrite /lambda.
-  (* exercise *)
-Admitted.
+  wp_pures.
+  iModIntro.
+  iPureIntro.
+  reflexivity.
+Qed.
 
 (* ================================================================= *)
 (** ** Resources *)
@@ -223,7 +226,8 @@ Proof.
   wp_load.
   (** Now we are left with a trivial proof that [1 + 2 = 3]. *)
   iModIntro.
-  done.
+  iPureIntro.
+  reflexivity.
 Qed.
 
 (**
@@ -254,7 +258,10 @@ Proof.
   wp_cmpxchg as H1 | H2.
   - (* CmpXchg succeeded *)
     iLeft.
-    by iFrame.
+    iModIntro.
+    iSplitR "Hl".
+    + iPureIntro. assumption.
+    + iApply "Hl".
   - (* CmpXchg failed *)
     iRight.
     by iFrame.
