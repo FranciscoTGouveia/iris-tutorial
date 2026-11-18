@@ -88,8 +88,9 @@ Qed.
 
 Lemma pers_dup (P : iProp Σ) `{!Persistent P} : P ⊢ P ∗ P.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "#HP".
+  iSplit; iApply "HP".
+Qed.
 
 (**
   Persistent propositions satisfy a lot of nice properties simply by
@@ -145,10 +146,10 @@ Proof.
       the persistent context as having an implicit [□] in front.
     *)
     iDestruct "HP" as "#HP".
-    done.
+    (* done. *) iModIntro. iApply "HP".
   - iIntros "#HP".
     (** Similarly, we do not have to introduce [□] before proving it. *)
-    done.
+    (* done. *) iModIntro.  iModIntro. iApply "HP".
 Qed.
 
 (**
@@ -173,15 +174,21 @@ Proof.
       ["#"].
     *)
     iFrame "#".
-  - (* exercise *)
-Admitted.
+  - iIntros "HPQ".
+    iDestruct "HPQ" as "[#HP #HQ]".
+    iFrame "#".
+Qed.
 
 (** Persistency is preserved by quantifications. *)
 
 Lemma pers_all `{A} (P : A → iProp Σ) : (∀x, □ P x) ⊢ ∀y, P y ∗ P y.
 Proof.
   iIntros "#Hp %y".
-  iSplitL; iApply ("Hp" $! y).
+  (* iSplitL; iApply ("Hp" $! y). *)
+  (* The [$!] notation above is to instantiate the universal quantifier of
+     [#Hp] with [y].
+  *)
+  iSplitL; iApply "Hp".
 Qed.
 
 (**
@@ -209,8 +216,11 @@ Proof.
   *)
   rewrite /myPredicate.
   iIntros "#H".
+  (* iApply "H". *)
+  iDestruct "H" as "%H".
   iModIntro.
-  iApply "H".
+  iPureIntro.
+  apply H.
 Qed.
 
 (** Iris is quite smart, so we do not have to spell out the proof. *)
@@ -249,7 +259,7 @@ Abort.
 Local Instance myPredFix_persistent xs : Persistent (myPredFix xs).
 Proof.
   (** We prove it by induction in [xs]. *)
-  induction xs as [| x xs' IH ].
+  induction xs as [| x' xs' IH ].
   - (** [True] is persistent *)
     apply _.
   - (**
@@ -261,6 +271,9 @@ Qed.
 
 (** Iris now recognises [myPredFix] as persistent. *)
 
+(* It recognizes because we made it a [Local Instance] and
+   proved that the [myPredFix] satisfies the [Persistent] typeclass. *)
+
 Lemma first_is_5 (x : val) (xs : list val) :
   myPredFix (x :: xs) -∗ ⌜x = #5⌝ ∗ myPredFix (x :: xs).
 Proof.
@@ -269,8 +282,13 @@ Proof.
     [iPoseProof] is similar to [iDestruct], but it does not throw away
     the hypothesis being destructed, if it is persistent.
   *)
+  (* If we were to use [iDestruct] instead, we would be removing [H]
+     out of the context.*)
   iPoseProof "H" as "[Hx _]".
-  iFrame "H Hx".
+  (* iFrame "H Hx". *)
+  iSplit.
+  - iApply "Hx".
+  - iApply "H".
 Qed.
 
 (* ================================================================= *)
@@ -329,8 +347,23 @@ Lemma counter_spec (inc : val) :
     counter inc
   {{{ v, RET v; ⌜v = #2⌝ }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "%Φ". (* Introduce the arbitrary postcondition. *)
+  iIntros "#P HΦ". (* Introduce the pre-conditions and the post-condition. *)
+  rewrite /counter.
+  wp_alloc c as "Hc".
+  wp_let.
+  wp_apply ("P" with "Hc"). (* Apply the hoare triple in the context. *)
+  iIntros "%_v Hc".
+  wp_seq.
+  wp_apply ("P" with "Hc").
+  iIntros "%_v0 Hc".
+  wp_seq.
+  wp_load.
+  iApply "HΦ".
+  iModIntro.
+  iPureIntro.
+  reflexivity.
+Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Persistent Points-to *)
@@ -356,7 +389,8 @@ Proof.
     iFrame.
   - iIntros "[Hl1 Hl2]".
     iCombine "Hl1" "Hl2" as "Hl".
-    iFrame.
+    (* iFrame. *)
+    iApply "Hl".
 Qed.
 
 (**
@@ -378,6 +412,30 @@ Proof.
   (** But we can no longer update the pointer. *)
   Fail wp_store.
 Abort.
+
+(** The above failed because we separated the ownership and threw away the
+   second fraction of the points-to. If we had save it, we could have later
+  combine it and successfully complete the proof. This is shown below.
+*)
+
+Lemma only_read_provable (l : loc) (v : val) :
+  {{{ l ↦ v }}} #l <- #2 ;; !#l ;; #l <- #3 {{{ w, RET w; l ↦ #3 }}}.
+Proof.
+  iIntros "%Φ Hl HΦ".
+  wp_store.
+  (* This is the important step where we don't throw away the other half. *)
+  iDestruct "Hl" as "[Hl1 Hl2]". 
+  wp_load.
+  wp_seq.
+  (* We cannot store as we do not own the entirety of [l]. *)
+  Fail wp_store.
+  (* So we need to combine the fractions to get ownership again. *)
+  iCombine "Hl1 Hl2" as "Hl".
+  wp_store.
+  iModIntro.
+  iApply "HΦ".
+  iApply "Hl".
+Qed.
 
 (**
   Fractional points-to predicates are especially useful in scenarios
