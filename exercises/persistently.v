@@ -458,22 +458,39 @@ Proof.
     The idea is to give each thread half of the points-to predicate and
     assert that both will return their halves afterwards.
   *)
+  (**
+     [t_post] is a function that takes the return value [w] of a thread and
+     describes what is expected to be true when that thread finishes.
+     In this case, it is expected to return the value it read, [⌜w = v⌝], and
+     to return half of the pointer's ownership, [l ↦{#1 / 2} v].
+  *)
   set t_post := (λ w : val, (⌜w = v⌝ ∗ l ↦{#1 / 2} v)%I).
   wp_pures.
+  (** Here the ordering does not matter [with "[HL1] [HL2]"] as the threads
+      do the same thing and we can prove each one with any of the hypotheses.
+  *)
   wp_apply (wp_par t_post t_post with "[Hl1] [Hl2]").
   (**
     Each thread has a fraction of the points-to predicate, so both can
     perform the load.
   *)
-  1, 2: wp_load; by iFrame.
+  - wp_load; rewrite /t_post. iModIntro. iSplitR "Hl1".
+    + iPureIntro. reflexivity.
+    + iApply "Hl1".
+  - wp_load. iFrame. iPureIntro. reflexivity. (* Just to be quicker. *)
+  (* 1, 2: wp_load; by iFrame. *) (* This would also result. *)
   (** The threads return their fractions. *)
-  iIntros (v1 v2) "[[-> Hl1] [-> Hl2]]".
-  iNext.
-  wp_let.
-  (** We combine them, allowing us to perform the store. *)
-  iCombine "Hl1 Hl2" as "Hl".
-  wp_store.
-  by iApply "HΦ".
+  (* - iIntros (v1 v2) "[[-> Hl1] [-> Hl2]]". *)
+  - iIntros "%v1 %v2". (* Introduce the universal quantifiers. *)
+    iIntros "[[-> Hl1] [-> Hl2]]".
+    iNext. (* Get rid of the later modality. *)
+    wp_let.
+    (** We combine them, allowing us to perform the store. *)
+    iCombine "Hl1 Hl2" as "Hl".
+    wp_store.
+    (* by iApply "HΦ". *)
+    iApply "HΦ".
+    iApply "Hl".
 Qed.
 
 (**
@@ -510,7 +527,11 @@ Proof.
   (** Make the points-to predicate persistent. *)
   iMod (pointsto_persist with "Hl") as "#Hl".
   wp_load.
-  by iFrame "#".
+  (* by iFrame "#". *)
+  iModIntro.
+  iSplit.
+  - iPureIntro. reflexivity.
+  - iApply "Hl".
 Qed.
 
 (**
@@ -529,7 +550,25 @@ Proof.
   rewrite /par_read.
   (** Both threads have the same postcondition, [t_post]. *)
   set t_post := (λ v, (⌜v = #21⌝)%I : iProp Σ).
-  (* exercise *)
-Admitted.
+  wp_alloc l as "Hl".
+  wp_let.
+  iMod (pointsto_persist with "Hl") as "#Hl".
+  wp_pures.
+  wp_apply (wp_par t_post t_post).
+  - wp_load. wp_binop. iModIntro. rewrite /t_post. iPureIntro. reflexivity.
+  - wp_load. wp_pures. iModIntro. rewrite /t_post. iPureIntro. reflexivity.
+  - iIntros "%v1 %v2 [HP1 HP2]".
+    iNext.
+    wp_let.
+    wp_pures.
+    iDestruct "HP1" as "%H1".
+    iDestruct "HP2" as "%H2".
+    rewrite H1 H2.
+    wp_pures.
+    iApply "HΦ".
+    iModIntro.
+    iPureIntro.
+    reflexivity.
+Qed.
 
 End persistently.
