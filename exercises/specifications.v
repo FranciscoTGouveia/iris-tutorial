@@ -158,6 +158,8 @@ Example lambda : expr :=
 Lemma lambda_spec : ⊢ WP lambda {{ v, ⌜v = #20⌝ }}.
 Proof.
   rewrite /lambda.
+  wp_pure.
+  wp_let.
   wp_pures.
   iModIntro.
   iPureIntro.
@@ -304,8 +306,18 @@ Proof.
   wp_cmpxchg_fail.
   wp_proj.
   wp_if.
-  (* exercise *)
-Admitted.
+  wp_load.
+  wp_let.
+  wp_cmpxchg_suc.
+  wp_proj.
+  wp_if.
+  wp_load.
+  wp_let.
+  wp_pure.
+  iModIntro.
+  iPureIntro.
+  reflexivity.
+Qed.
 
 (**
   We finish this section with a final remark about the points-to
@@ -359,16 +371,21 @@ Proof.
     corresponding to [WP e {{ Φ }}] and one to [(∀ v, Φ v -∗ Ψ v)].
   *)
   iApply wp_wand; simpl.
-  { iApply prog_spec. }
-  simpl.
+  - iApply prog_spec.
+  - simpl.
   (**
     When introducing equalities, we can immediately rewrite using it
     with [->] or [<-], depending on which direction we want to rewrite.
   *)
-  iIntros "%w ->".
+  (* iIntros "%w ->". *)
+  iIntros.
+  rewrite H.
   (** And now we can evaluate the rest of the program. *)
   wp_pure.
-  done.
+  (* done. *)
+  iModIntro.
+  iPureIntro.
+  reflexivity.
 Qed.
 
 (**
@@ -381,10 +398,15 @@ Proof.
   iIntros "HΦ".
   rewrite /prog.
   wp_alloc l as "Hl".
+  wp_let.
   wp_load.
   wp_store.
   wp_load.
-  by iApply "HΦ".
+  (* by iApply "HΦ". *)
+  iModIntro.
+  iApply "HΦ".
+  iPureIntro.
+  reflexivity.
 Qed.
 
 (** Now, the other proof becomes simpler. *)
@@ -394,9 +416,14 @@ Proof.
   (** The goal is now on the exact form required by [prog_spec_2]. *)
   iApply prog_spec_2.
   (** And the proof proceeds as before. *)
-  iIntros "%w ->".
+  iIntros.
+  rewrite H.
+  (* iIntros "%w ->". *)
   wp_pure.
-  done.
+  (* done. *)
+  iModIntro.
+  iPureIntro.
+  reflexivity.
 Qed.
 
 (**
@@ -468,16 +495,25 @@ Proof.
     When introducing a Hoare triple, we use the definition above to turn
     the goal into a weakest precondition.
   *)
-  iIntros "%Φ [H1 H2] HΦ".
+  (* iIntros "%Φ [H1 H2] HΦ". *)
+  iStartProof.
+  iIntros "%Φ".
+  iIntros "[H1 H2]".
+  iIntros "HΦ".
   (** We can now prove the specification as we have done previously. *)
   rewrite /swap.
   wp_pures.
   wp_load.
+  wp_let.
   wp_load.
   wp_store.
   wp_store.
   iApply "HΦ".
-  by iFrame.
+  (* by iFrame. *)
+  iModIntro.
+  iSplitL "H1".
+  - iApply "H1".
+  - iApply "H2".
 Qed.
 
 (**
@@ -496,7 +532,7 @@ Proof.
   iIntros "H".
   wp_seq.
   wp_apply (swap_spec with "H").
-  done.
+  iApply "HΦ".
 Qed.
 
 (**
@@ -573,7 +609,10 @@ Lemma par_client_spec :
     par_client
   {{{ l1 l2 life, RET (#l1, #l2, #life); l1 ↦ #21 ∗ l2 ↦ #2 ∗ ⌜life = 42⌝ }}}.
 Proof.
-  iIntros (Φ _) "HΦ".
+  (* iIntros (Φ _) "HΦ". *)
+  iStartProof.
+  iIntros "%Φ _".
+  iIntros "HΦ".
   rewrite /par_client.
   (**
     The program starts by creating two fresh locations, [l1] and [l2].
@@ -642,6 +681,15 @@ Definition race_spec (l : loc) (v : val) :=
 (**
   Could we prove this specification similarly to how we proved
   [par_client]?
+*)
+
+(**
+  The answer seems to be no. Both threads would need to access a same
+  resource, which cannot be split into two copies. We have that:
+                  [ l ↦ v ⊬ (l ↦ v) ∗ (l ↦ v) ]
+  A possible way of doing this was guaranteeing that the resources could
+  be splitted into two copies, or to have some kind of invariant regarding
+  shared state.
 *)
 
 End specifications.
