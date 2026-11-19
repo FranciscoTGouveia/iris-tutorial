@@ -20,6 +20,18 @@ Fixpoint isList (l : val) (xs : list val) : iProp Σ :=
   | x :: xs => ∃ (hd : loc) l', ⌜l = SOMEV (#hd)⌝ ∗ hd ↦ (x, l') ∗ isList l' xs
   end.
 (**
+  The objective is that we receive a Iris list [l] and a [xs] Rocq list
+  and prove that they are the same. If, for example, [xs] is empty, then
+  our Iris list [l] should be [NONEV]. Otherwise, there must be a location
+  [hd] and a value [l'], such that our Iris linked list node is equal to a
+  location [hd] (which is prefixed with [#] because it is from Iris), that
+  contains a tuple that (representing the actual node of the linked list)
+  containing a value [x] and a [l'] which is a [val] (i.e., an option that
+  may contain a location. So, after proving that the number in the head of
+  the Iris list is equal to the one in the Rocq list, we advance to the next
+  nodes---[l'] is the rest of the Iris list, and [xs] the Rocq counterpart.
+*)
+(**
   Here, [NONEV] and [SOMEV v] are the value equivalents of [NONE] and
   [SOME e].
 *)
@@ -49,6 +61,7 @@ Definition inc : val :=
 *)
 Lemma inc_spec (l : val) (xs : list Z) :
   {{{ isList l ((λ x : Z, #x) <$> xs) }}}
+    (* The lambda above transforms [xs : list Z] into [xs: list val]. *)
     inc l
   {{{ RET #(); isList l ((λ x, #(x + 1)) <$> xs)}}}.
 Proof.
@@ -60,13 +73,37 @@ Proof.
   revert l.
   induction xs as [|x xs' IH]; simpl.
   - (* Base Case: xs = [] *)
-    iIntros (l) "%Φ -> HΦ".
+    (* iIntros (l) "%Φ -> HΦ". *)
+    iIntros "%l". (* Introduce the existential quantifier [l]. *)
+    iIntros "%Φ". (* Introduce the existential quantifier [x]. *)
+    iIntros "->". (* Use the equality-introduction pattern. *)
+    iIntros "HΦ". (* Introduce the post-condition. *)
     wp_rec.
     wp_pures.
+    (* iApply "HΦ". iModIntro. iPureIntro. reflexivity. *)
     by iApply "HΦ".
   - (* Induction step: xs = x :: xs' *)
-    (* exercise *)
-Admitted.
+    iIntros "%l %Φ HP". (* Introduce universal quantifiers. and precondition. *)
+    iDestruct "HP" as "(%hd & %hl' & HP)". (* Same as [["[%hd [%hl' HP]]"]]. *)
+    iDestruct "HP" as "[-> [P2 P3]]".
+    iIntros "HΦ".
+    wp_rec.
+    wp_pures.
+    wp_load.
+    (* Could have just called [wp_pures] here. *)
+    wp_proj.
+    wp_let.
+    wp_load. wp_proj. wp_let.
+    wp_pures.
+    wp_store.
+    wp_apply (IH with "P3").
+    iIntros "Hhl".
+    iApply "HΦ".
+    iExists hd, hl'.
+    iSplitR.
+    + iPureIntro. reflexivity.
+    + iFrame.
+Qed.
 
 (**
   The append function recursively descends [l1], updating the links.
