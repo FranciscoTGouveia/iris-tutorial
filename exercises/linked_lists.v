@@ -32,7 +32,7 @@ Fixpoint isList (l : val) (xs : list val) : iProp Σ :=
   nodes---[l'] is the rest of the Iris list, and [xs] the Rocq counterpart.
 *)
 (**
-  Here, [NONEV] and [SOMEV v] are the value equivalents of [NONE] and
+Here, [NONEV] and [SOMEV v] are the value equivalents of [NONE] and
   [SOME e].
 *)
 
@@ -134,8 +134,30 @@ Lemma append_spec (l1 l2 : val) (xs ys : list val) :
 Proof.
   revert ys l1 l2.
   induction xs as [| x xs' IH]; simpl.
-  (* exercise *)
-Admitted.
+  - (* Base case: xs = [] *)
+    iIntros "%ys %l1 %l2 %Φ".
+    iIntros "[-> P2] HΦ".
+    wp_rec.
+    wp_pures.
+    by iApply "HΦ".
+  - (* Induction step: xs = x :: xs' *)
+    iIntros "%ys %l1 %l2 %Φ [HP1 HP2] HΦ".
+    iDestruct "HP1" as "(%hd & %l' & -> & HP11 & HP12)".
+    wp_rec.
+    wp_pures. wp_load. wp_proj. wp_let.
+    wp_load. wp_proj. wp_let.
+    iCombine "HP12 HP2" as "HP2".
+    wp_apply (IH with "HP2").
+    iIntros "%l HP1".
+    wp_let.
+    wp_store.
+    wp_pures.
+    iApply "HΦ".
+    iExists hd, l.
+    iSplitR.
+    + iModIntro. iPureIntro. reflexivity.
+    + iModIntro. iFrame.
+Qed.
 
 (**
   We will implement reverse using a helper function called
@@ -167,8 +189,25 @@ Lemma reverse_append_spec (l acc : val) (xs ys : list val) :
 Proof.
   revert l acc ys.
   induction xs as [| x xs' IH]; simpl.
-  (* exercise *)
-Admitted.
+  - (* Base case: xs = [] *)
+    iIntros "%l %acc %ys %Φ [-> P2] HΦ".
+    wp_rec.
+    wp_let.
+    wp_pures.
+    by iApply "HΦ".
+  - (* Induction step: xs = x :: xs' *)
+    iIntros "%l %acc %ys %Φ [HP1 HP2] HΦ".
+    iDestruct "HP1" as "(%hd & %l' & -> & HP11 & HP12)".
+    wp_rec.
+    wp_pures.
+    wp_load. wp_proj. wp_load.
+    wp_proj. wp_let.
+    wp_store.
+    wp_apply (IH _ _ (x :: ys) with "[HP11 HP12 HP2]").
+    + iSplitL "HP12". iApply "HP12".
+      simpl. iExists hd, acc. iFrame. iPureIntro. reflexivity.
+    + rewrite <- app_assoc. iApply "HΦ".
+Qed.
 
 (**
   Now, we use the specification of [reverse_append] to prove the
@@ -179,8 +218,12 @@ Lemma reverse_spec (l : val) (xs : list val) :
     reverse l
   {{{ v, RET v; isList v (rev xs) }}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "%Φ Hl HΦ".
+  wp_rec. wp_pures.
+  wp_apply (reverse_append_spec _ _ _ [] with "[Hl]").
+  - iSplitL "Hl". iApply "Hl". simpl. iPureIntro. reflexivity.
+  - rewrite app_nil_r. iApply "HΦ". (* Search (_ ++ [] = _). *)
+Qed.
 
 (**
   The specifications thus far have been rather straightforward. Now we
@@ -237,8 +280,34 @@ Proof.
   revert a l.
   induction xs as [|x xs IHxs].
   all: simpl.
-  (* exercise *)
-Admitted.
+  - (* Base case: xs = [] *)
+    iIntros "%a %l %Φ". (* Introduce universal quantifiers. *)
+    iIntros "(-> & _ & P2 & #FSpec) HΦ".
+    wp_rec.
+    wp_pures.
+    iApply "HΦ".
+    by iFrame.
+  - (* Induction step: xs = x :: xs' *)
+    iIntros "%a %l %Φ". (* Introduce universal quantifiers. *)
+    iIntros "[(%hd & %l' & -> & P1 & P2) ([P3_1 P3_2] & P4 & #FSpec)] HΦ".
+    wp_rec.
+    wp_pures.
+    (** wp_load. wp_proj. wp_let.
+        wp_load. wp_proj. wp_let.
+    *)
+    do 2 (wp_load; wp_proj; wp_let).
+    wp_apply (IHxs with "[P2 P3_2 P4]").
+    + iFrame.
+      iApply "FSpec".
+    + iIntros "%r [H1 H2]".
+      wp_apply ("FSpec" with "[P3_1 H2]"). iFrame.
+      iIntros "%r0 H2".
+      iApply "HΦ".
+      iSplitR "H2".
+      2: iApply "H2".
+      iExists hd, l'.
+      by iFrame.
+Qed.
 
 (**
   We can now sum over a list simply by folding an addition function over
