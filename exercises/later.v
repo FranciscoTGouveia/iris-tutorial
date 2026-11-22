@@ -93,8 +93,11 @@ Qed.
 
 Lemma later_impl (P Q : iProp Σ) : P ∗ ▷ (P -∗ Q) -∗ ▷ Q.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "[H HPQ]".
+  iNext.
+  iApply "HPQ".
+  iApply "H".
+Qed.
 
 (* ================================================================= *)
 (** ** Tying Later to Program Steps *)
