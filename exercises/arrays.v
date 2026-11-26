@@ -105,6 +105,7 @@ Proof.
   {
     iPureIntro.
     symmetry.
+    Search length replicate.
     apply length_replicate.
   }
   iIntros "[Ha Ha']".
@@ -133,8 +134,25 @@ Lemma inc_spec a l :
     inc #a #(length l)
   {{{RET #(); a ↦∗ ((λ i : Z, #(i + 1)) <$> l)}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "%Φ H1 HΦ".
+  iInduction l as [| i l] "IH" forall (a).
+  - wp_rec.
+    wp_pures.
+    iApply "HΦ".
+    iApply "H1".
+  - wp_rec.
+    wp_pures.
+    rewrite !fmap_cons !array_cons.
+    iDestruct "H1" as "[H11 H12]".
+    wp_load.
+    wp_store.
+    wp_pures.
+    rewrite Nat2Z.inj_succ Z.sub_1_r Z.pred_succ.
+    wp_apply ("IH" with "H12").
+    iIntros "H2".
+    iApply "HΦ".
+    by iFrame.
+Qed.
 
 (* ================================================================= *)
 (** ** Reverse *)
@@ -165,7 +183,60 @@ Lemma reverse_spec a l :
     reverse #a #(length l)
   {{{RET #(); a ↦∗ rev l}}}.
 Proof.
-  (* exercise *)
-Admitted.
+  iIntros "%Φ H1 HΦ".
+  iLöb as "IH" forall (a l).
+  wp_rec.
+  wp_let.
+  wp_pures.
+  (* Search bool_decide. *)
+  destruct (bool_decide_reflect (length l ≤ 1)%Z); wp_pures.
+  - iApply "HΦ".
+    destruct l as [|v1 [| v2 l]]; try done.
+    (* Search length cons. *)
+    rewrite !length_cons in l0.
+    (* About Nat2Z.inj_le. *)
+    apply (Nat2Z.inj_le _ 1) in l0.
+    (* Search (S _ ≤ S _). *)
+    apply le_S_n in l0.
+    inversion l0.
+  - apply Z.nle_gt in n.
+    destruct l as [|v1 l]; try done.
+    rewrite array_cons. iDestruct "H1" as "[H1 H2]".
+    wp_load.
+    wp_pures.
+    rewrite Nat2Z.inj_succ Z.sub_1_r Z.pred_succ.
+    destruct l as [| vn l _] using rev_ind; try done.
+    rewrite array_app.
+    iDestruct "H2" as "[H21 H22]".
+    (* Search "array" "singleton". *)
+    rewrite array_singleton.
+    (* Search length cons. *)
+    rewrite last_length.
+    (* Search "add" "1". *)
+    rewrite <- Nat.add_1_l.
+    (* Search (Z.of_nat (_ + _)). *)
+    rewrite Nat2Z.inj_add.
+    Search (_  +ₗ _ +ₗ _).
+    rewrite <- Loc.add_assoc.
+    wp_load.
+    wp_store.
+    wp_store.
+    wp_pures.
+    rewrite Z.add_1_l -!Z.add_1_r.
+    rewrite -Z.add_assoc.
+    (* Search (_ + ?m - ?m)%Z. *)
+    rewrite Z.add_simpl_r.
+    wp_apply ("IH" with "H21").
+    iIntros "Hl".
+    iApply "HΦ".
+    (* Search "rev" "app". *)
+    simpl. rewrite rev_unit.
+    simpl. rewrite array_cons.
+    rewrite array_app array_singleton.
+    iFrame.
+    (* Search "length" "rev". *)
+    rewrite length_rev.
+    iApply "H22".
+Qed.
 
 End proofs.
