@@ -262,14 +262,16 @@ Proof. compute_done. Qed.
 Lemma dfrac_op_both_disc : ∃ x : dfrac,
   DfracBoth (2/3) ⋅ DfracDiscarded = x.
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracBoth(2/3)).
+  compute_done.
+Qed.
 
 Lemma dfrac_op_frac_both : ∃ x : dfrac,
   DfracOwn (1/4) ⋅ DfracBoth (2/4) = x.
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracBoth (3/4)).
+  compute_done.
+Qed.
 
 (**
   As dfrac is a record of type [RAMixin], we know that [⋅] must be
@@ -284,11 +286,14 @@ Proof.
   done.
 Qed.
 
+Print RAMixin.
+
 Lemma dfrac_op_comm (dq1 dq2 : dfrac) :
   dq1 ⋅ dq2 = dq2 ⋅ dq1.
 Proof.
-  (* exercise *)
-Admitted.
+  rewrite dfrac_ra_mixin.(ra_comm _).
+  reflexivity.
+Qed.
 
 (* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *)
 (** **** Valid Elements (the [Valid A]) *)
@@ -325,8 +330,9 @@ Qed.
 
 Lemma dfrac_valid_discarded : ✓ (DfracDiscarded).
 Proof.
-  (* exercise *)
-Admitted.
+  rewrite dfrac_valid.
+  done.
+Qed.
 
 Lemma dfrac_invalid_own : ¬ (✓ (DfracOwn (2/3) ⋅ DfracOwn (2/3))).
 Proof.
@@ -392,13 +398,15 @@ Qed.
 
 Lemma dfrac_pre_disc_both : DfracDiscarded ≼ DfracBoth (3/4).
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracOwn (3/4)).
+  compute_done.
+Qed.
 
 Lemma dfrac_pre_own_both : DfracOwn (2/4) ≼ DfracBoth (3/4).
 Proof.
-  (* exercise *)
-Admitted.
+  exists (DfracOwn (1/4) ⋅ DfracDiscarded).
+  compute_done.
+Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Frame Preserving Update *)
@@ -533,6 +541,8 @@ Qed.
   Hint: use [cmra_discrete_update] to rewrite [dfrac_discard_update].
 *)
 
+Print RAMixin.
+
 Lemma dfrac_update_own_both : DfracOwn (3/4) ~~> DfracBoth (1/4).
 Proof.
   rewrite cmra_discrete_update.
@@ -540,9 +550,15 @@ Proof.
   rewrite <- dfrac_op in Hvalid.
   assert ((DfracBoth (1 / 4)) = (DfracDiscarded ⋅? Some (DfracOwn (1 / 4)))) as ->.
   { compute_done. }
-  rewrite cmra_opM_opM_assoc_L.
-  (* exercise *)
-Admitted.
+  assert (∀mz, ✓(DfracOwn(1/2) ⋅? mz) → ✓(DfracDiscarded ⋅? mz)) as H_dfrac.
+  { rewrite <- cmra_discrete_update. apply dfrac_discard_update. }
+  simpl.
+  rewrite cmra_op_opM_assoc in Hvalid.
+  rewrite cmra_op_opM_assoc.
+  apply (H_dfrac (Some _)) in Hvalid.
+  apply Hvalid.
+Qed.
+
 
 (* ================================================================= *)
 (** ** Example Resource Algebra *)
